@@ -1,0 +1,127 @@
+# Deptrac - layer boundary enforcement
+# https://qossmic.github.io/deptrac
+#
+# Deptrac checks the one thing no type checker can: whether the architecture the
+# ADRs describe is the architecture the code actually has.
+#
+# For an agent-driven codebase this is decisive. "Cross-domain access goes through
+# an Application service, an event, or a Uuid plus your own repository" is a
+# sentence in adr/README.md that a reviewer may or may not notice being violated.
+# Deptrac turns it into a build failure with a file and a line number.
+#
+# Run with:  make deptrac
+# Baseline:  vendor/bin/deptrac analyse --formatter=baseline > deptrac.baseline.yaml
+#            (only for adopting this on an existing codebase; shrink it deliberately)
+
+deptrac:
+  paths:
+    - ./src
+
+  # Anything not matched by a layer is reported (see --fail-on-uncovered in the
+  # Makefile). Silent gaps in the ruleset are how layer violations sneak back in.
+  layers:
+
+    # ---- Architectural layers -------------------------------------------------
+
+    - name: Domain
+      collectors:
+        - type: className
+          value: '^App\\[A-Za-z]+\\Domain\\.*'
+
+    - name: Application
+      collectors:
+        - type: className
+          value: '^App\\[A-Za-z]+\\Application\\.*'
+
+    - name: Infrastructure
+      collectors:
+        - type: className
+          value: '^App\\[A-Za-z]+\\Infrastructure\\(?!Http\\Controller).*'
+
+    - name: UI
+      collectors:
+        - type: className
+          value: '^App\\[A-Za-z]+\\Infrastructure\\Http\\Controller\\.*'
+
+    # ---- Bounded contexts -----------------------------------------------------
+    # Listed separately so cross-context reach-through is visible as its own
+    # violation, not hidden inside a legal layer-to-layer dependency.
+
+    - name: Orders
+      collectors:
+        - type: className
+          value: '^App\\Orders\\.*'
+
+    - name: Invoicing
+      collectors:
+        - type: className
+          value: '^App\\Invoicing\\.*'
+
+    - name: Billing
+      collectors:
+        - type: className
+          value: '^App\\Billing\\.*'
+
+    - name: Identity
+      collectors:
+        - type: className
+          value: '^App\\Identity\\.*'
+
+    - name: Notification
+      collectors:
+        - type: className
+          value: '^App\\Notification\\.*'
+
+    - name: SharedKernel
+      collectors:
+        - type: className
+          value: '^App\\Shared\\.*'
+
+  ruleset:
+    # Dependencies point inward only.
+    #
+    # Domain is the centre: it knows nothing about anything. If a Domain class
+    # needs a database, a queue or an HTTP client, it declares an interface and
+    # Infrastructure implements it.
+    Domain: ~
+
+    # Application orchestrates the Domain. It must not know how anything is
+    # stored or delivered.
+    Application:
+      - Domain
+
+    # Infrastructure implements the interfaces the inner layers declare.
+    Infrastructure:
+      - Application
+      - Domain
+
+    # Controllers are a delivery mechanism. They map a request into a Command or
+    # Query, dispatch it, and map the result into a response - nothing else.
+    # No Infrastructure here: a controller reaching for a repository is exactly
+    # the shortcut this ruleset exists to catch.
+    UI:
+      - Application
+      - Domain
+
+    # ---- Cross-context rules --------------------------------------------------
+    #
+    # Every context may use the shared kernel. Nothing else is allowed by
+    # default: talking to another context goes through an Application service,
+    # a domain event, or an identifier plus your own repository.
+    #
+    # When a genuine dependency is agreed, add it here with a comment recording
+    # the decision - an undocumented entry is indistinguishable from a leak.
+    Orders:
+      - SharedKernel
+    Invoicing:
+      - SharedKernel
+    Billing:
+      - SharedKernel
+    Identity:
+      - SharedKernel
+    Notification:
+      - SharedKernel
+
+    # The shared kernel depends on nothing. If something here needs a context,
+    # it does not belong in the shared kernel.
+    SharedKernel: ~

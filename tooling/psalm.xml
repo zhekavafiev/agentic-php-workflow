@@ -1,0 +1,131 @@
+<?xml version="1.0"?>
+<!--
+    Strict Psalm configuration for an agent-driven PHP project.
+
+    errorLevel="1" is the strictest level. It is deliberate: an agent has no
+    compiler, so static analysis is the only machine-checkable signal that the
+    code it produced is actually correct. The looser this file is, the more the
+    autonomous loop relies on "the code looks right".
+
+    Note there is no errorBaseline attribute. A baseline is a list of errors you
+    have agreed to ignore, and an agent reads it as permission. If you must add
+    one during a migration, treat it as debt with a stated shrink plan, and never
+    let an agent regenerate it.
+-->
+<psalm
+        cacheDirectory="var/psalm"
+        checkForThrowsDocblock="true"
+        checkForThrowsInGlobalScope="true"
+        disableSuppressAll="true"
+        ensureArrayStringOffsetsExist="true"
+        errorLevel="1"
+        findUnusedCode="false"
+        findUnusedBaselineEntry="true"
+        findUnusedPsalmSuppress="true"
+        findUnusedVariablesAndParams="true"
+        memoizeMethodCallResults="true"
+        reportMixedIssues="true"
+        sealAllMethods="true"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="https://getpsalm.org/schema/config"
+        xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+>
+    <projectFiles>
+        <directory name="src"/>
+        <ignoreFiles>
+            <directory name="var"/>
+            <directory name="vendor"/>
+        </ignoreFiles>
+    </projectFiles>
+
+    <!--
+        Debugging residue that agents and humans both leave behind.
+    -->
+    <forbiddenFunctions>
+        <function name="dd"/>
+        <function name="die"/>
+        <function name="dump"/>
+        <function name="echo"/>
+        <function name="empty"/>
+        <function name="eval"/>
+        <function name="exit"/>
+        <function name="print"/>
+        <function name="var_export"/>
+    </forbiddenFunctions>
+
+    <issueHandlers>
+        <MixedAssignment errorLevel="suppress"/>
+
+        <!--
+            Architectural decision: @throws is not enforced in adapter layers,
+            where code calls vendor methods and converts or swallows their
+            transitive exceptions. The contract is expressed by the Domain
+            interface (Repository, Notification, Bus), which specifies what must
+            propagate upward (domain exceptions, DBAL). Transitive vendor
+            exceptions are an implementation detail, not part of the domain API.
+
+            Console commands: the framework catches exceptions at the application
+            level and converts them into exit codes, so @throws adds nothing.
+
+            Persistence: Domain repository interfaces do not declare ORM transient
+            exceptions - "a repository is a collection of objects" is the concept
+            being preserved.
+
+            HTTP clients, buses and serializers are vendor wrappers that convert
+            exceptions into domain ones or swallow them deliberately.
+
+            Every global suppression added here needs a justification written
+            next to it, like these. An unexplained suppression is a rule an agent
+            will read as permission.
+        -->
+        <MissingThrowsDocblock>
+            <errorLevel type="suppress">
+                <directory name="src/Orders/Infrastructure/Console"/>
+                <directory name="src/Invoicing/Infrastructure/Console"/>
+                <directory name="src/Billing/Infrastructure/Console"/>
+                <directory name="src/Shared/Infrastructure/Console"/>
+
+                <directory name="src/Identity/Infrastructure/Security"/>
+
+                <directory name="src/Orders/Infrastructure/Persistence"/>
+                <directory name="src/Invoicing/Infrastructure/Persistence"/>
+                <directory name="src/Billing/Infrastructure/Persistence"/>
+                <directory name="src/Identity/Infrastructure/Persistence"/>
+                <directory name="src/Shared/Infrastructure/Persistence"/>
+
+                <directory name="src/Shared/Infrastructure/Bus"/>
+                <directory name="src/Shared/Infrastructure/Notification"/>
+                <directory name="src/Shared/Infrastructure/Serializer"/>
+                <directory name="src/Shared/Infrastructure/Http"/>
+            </errorLevel>
+        </MissingThrowsDocblock>
+    </issueHandlers>
+
+    <!--
+        Transitive exceptions that are not part of our domain contract. They are
+        either caught by the framework's exception subscriber or indicate a fatal
+        infrastructure problem (config, migration, concurrent update). Listing
+        them in @throws all the way up the stack is noise.
+
+        Extend this list only with a justification.
+    -->
+    <ignoreExceptions>
+        <classAndDescendants name="LogicException"/>
+
+        <classAndDescendants name="Doctrine\ORM\Exception\ORMException"/>
+        <classAndDescendants name="Doctrine\ORM\OptimisticLockException"/>
+        <classAndDescendants name="Doctrine\ORM\TransactionRequiredException"/>
+        <classAndDescendants name="Doctrine\ORM\NoResultException"/>
+        <classAndDescendants name="Doctrine\ORM\NonUniqueResultException"/>
+        <classAndDescendants name="Doctrine\Persistence\Mapping\MappingException"/>
+
+        <!--
+            Thrown by the request InputBag on a missing or non-scalar key. Not
+            part of the domain contract; always converted into HTTP 400 by the
+            API exception subscriber.
+        -->
+        <classAndDescendants name="Symfony\Component\HttpKernel\Exception\BadRequestHttpException"/>
+        <classAndDescendants name="Symfony\Component\HttpFoundation\Exception\BadRequestException"/>
+        <classAndDescendants name="Symfony\Component\HttpFoundation\Exception\UnexpectedValueException"/>
+    </ignoreExceptions>
+</psalm>

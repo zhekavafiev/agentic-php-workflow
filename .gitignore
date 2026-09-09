@@ -1,0 +1,30 @@
+# PHP
+/vendor/
+**/vendor/
+composer.phar
+
+# Tooling caches
+**/var/
+.php-cs-fixer.cache
+.phpunit.result.cache
+psalm.cache
+deptrac.cache
+
+# Local agent state
+.claude/settings.local.json
+.claude/worktrees/
+.claude/skills/
+
+# Environment
+.env
+.env.local
+*.env
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
