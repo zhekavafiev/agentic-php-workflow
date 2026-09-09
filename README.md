@@ -29,6 +29,8 @@ This repository is a **sanitized template** extracted from a production system b
 
 ## The pipeline
 
+![Pipeline overview](docs/img/1-pipeline.png)
+
 ```mermaid
 flowchart TD
     A["Spec in spec-driven/"] --> B["spec-triage · Haiku<br/>BUILT"]
@@ -57,6 +59,8 @@ flowchart TD
 ```
 
 ## Results on a real project
+
+![Metrics](docs/img/2-metrics.png)
 
 Metrics from the production system this template was extracted from (Symfony 7.1, PHP 8.3; February–August 2026). Every number is reproducible with a one-line git or shell command.
 
